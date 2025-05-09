@@ -1,0 +1,13 @@
+# CODEOWNERS file for go-worktree
+# https://docs.github.com/articles/about-code-owners
+
+# Default owner for everything in the repository
+* @mdelgado509
+
+# Specific ownership examples (uncomment and modify as needed)
+# /cmd/ @mdelgado509
+# /internal/ @mdelgado509
+# /pkg/ @mdelgado509
+# /docs/ @mdelgado509
+# *.go @mdelgado509
+# Makefile @mdelgado509
