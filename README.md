@@ -149,4 +149,4 @@ To contribute to this project:
 
 ## License
 
-This project is released under the MIT License.
+This project is released under the [MIT License](LICENSE).
