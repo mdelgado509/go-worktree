@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/mdelgado509/go-worktree/internal/util"
 	"github.com/mdelgado509/go-worktree/internal/worktree"
-	"github.com/mdelgado509/go-worktree/pkg/util"
 )
 
 // Command constants define the available commands
@@ -85,10 +85,10 @@ func printUsage() {
 	fmt.Println("  go-worktree help|--help                         Show this help message")
 	fmt.Println("  go-worktree version|--version                   Show version information")
 	fmt.Println("\nExamples:")
-	fmt.Println("  go-worktree create DML-746                      Create worktree for ticket DML-746")
-	fmt.Println("  go-worktree create DML-746 develop              Create from develop branch")
-	fmt.Println("  go-worktree delete DML-746 -d                   Delete worktree and branch")
-	fmt.Println("  eval $(go-worktree cd DML-746)                  Switch to DML-746 worktree")
+	fmt.Println("  go-worktree create ABC-746                      Create worktree for ticket ABC-746")
+	fmt.Println("  go-worktree create ABC-746 develop              Create from develop branch")
+	fmt.Println("  go-worktree delete ABC-746 -d                   Delete worktree and branch")
+	fmt.Println("  eval $(go-worktree cd ABC-746)                  Switch to ABC-746 worktree")
 }
 
 // handleCreate handles the create command

@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/mdelgado509/go-worktree/internal/git"
-	"github.com/mdelgado509/go-worktree/pkg/util"
+	"github.com/mdelgado509/go-worktree/internal/util"
 )
 
 // Manager handles worktree operations
