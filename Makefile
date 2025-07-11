@@ -20,7 +20,7 @@ test:
 # Run integration tests (more invasive)
 test-integration:
 	@echo "Running integration tests..."
-	chmod +x integration_test.sh && ./integration_test.sh
+	sh integration_test.sh
 
 # Format code
 fmt:
