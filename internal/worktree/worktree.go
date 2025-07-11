@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/mdelgado509/go-worktree/internal/git"
 	"github.com/mdelgado509/go-worktree/internal/util"
@@ -79,6 +80,11 @@ func (m *Manager) Create(ticket, baseBranch string) error {
 	fmt.Printf("Creating worktree for %s%s%s...\n", util.ColorBlue, ticket, util.ColorReset)
 	if err := m.git.CreateWorktree(worktreeDir, ticket); err != nil {
 		return fmt.Errorf("failed to create worktree: %w", err)
+	}
+
+	// Symlink pre-commit configs to the worktree
+	if err := m.symlinkPrecommitConfigs(worktreeDir); err != nil {
+		return fmt.Errorf("failed to symlink pre-commit configs: %w", err)
 	}
 
 	fmt.Printf("%sSuccess!%s Worktree created at: %s\n", util.ColorGreen, util.ColorReset, worktreeDir)
@@ -176,4 +182,99 @@ func (m *Manager) List() error {
 	}
 
 	return nil
+}
+
+// symlinkPrecommitConfigs symlinks the pre-commit configs to the worktree
+func (m *Manager) symlinkPrecommitConfigs(worktreePath string) error {
+	mainRepoRoot, err := m.git.GetRepoRoot()
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("DEBUG: Raw repo root: '%s'\n", mainRepoRoot)
+	fmt.Printf("DEBUG: Is absolute: %v\n", filepath.IsAbs(mainRepoRoot))
+
+	configs, err := findAllPrecommitConfigs(mainRepoRoot)
+	if err != nil {
+		return err
+	}
+
+	if len(configs) == 0 {
+		fmt.Printf("No pre-commit configs found in %s%s%s\n", util.ColorYellow, mainRepoRoot, util.ColorReset)
+		return nil
+	}
+
+	for _, config := range configs {
+		if err := m.createConfigSymlink(worktreePath, mainRepoRoot, config); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// createConfigSymlink creates a symlink to the pre-commit config in the worktree
+func (m *Manager) createConfigSymlink(worktreePath, mainRepoRoot, configPath string) error {
+	relativeConfigPath, err := filepath.Rel(mainRepoRoot, configPath)
+	if err != nil {
+		return err
+	}
+
+	worktreeConfigPath := filepath.Join(worktreePath, relativeConfigPath)
+	fmt.Printf("DEBUG: Will create symlink at: %s\n", worktreeConfigPath)
+	fmt.Printf("DEBUG: Target file: %s\n", configPath)
+
+	if err := os.MkdirAll(filepath.Dir(worktreeConfigPath), 0755); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	fmt.Printf("DEBUG: Removing existing file: %s\n", worktreeConfigPath)
+	os.Remove(worktreeConfigPath)
+
+	relPath, err := filepath.Rel(filepath.Dir(worktreeConfigPath), configPath)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("DEBUG: Calculated relative path: %s\n", relPath)
+
+	if err := os.Symlink(relPath, worktreeConfigPath); err != nil {
+		return fmt.Errorf("failed to create symlink: %w", err)
+	}
+
+	// Auto-stage the typechange to avoid pre-commit issues
+	if err := m.git.AutoCommitTypechange(worktreePath, relativeConfigPath); err != nil {
+		fmt.Printf("Warning: Could not auto-stage config change: %v\n", err)
+	}
+
+	fmt.Printf("DEBUG: Successfully created symlink\n")
+	return nil
+}
+
+// findAllPrecommitConfigs discovers all pre-commit configs in the repository
+func findAllPrecommitConfigs(repoRoot string) ([]string, error) {
+	var configs []string
+
+	fmt.Printf("Searching for pre-commit configs in: %s\n", repoRoot) // Debug
+
+	err := filepath.Walk(repoRoot, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Skip .git directories and other hidden dirs
+		if info.IsDir() && strings.HasPrefix(info.Name(), ".") && info.Name() != "." {
+			return filepath.SkipDir
+		}
+
+		if info.Name() == ".pre-commit-config.yaml" || info.Name() == ".pre-commit-config.yml" {
+			fmt.Printf("Found pre-commit config: %s\n", path) // Debug
+			configs = append(configs, path)
+		}
+
+		return nil
+	})
+
+	fmt.Printf("Total configs found: %d\n", len(configs)) // Debug
+	return configs, err
 }

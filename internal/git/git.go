@@ -33,6 +33,16 @@ func (c *Client) GetRepoName() (string, error) {
 	return filepath.Base(repoPath), nil
 }
 
+// GetRepoRoot returns the full path to the root directory of the git repository
+func (c *Client) GetRepoRoot() (string, error) {
+	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("not in a git repository: %w", err)
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
 // FetchBranch fetches the latest changes for a branch
 func (c *Client) FetchBranch(branch string) error {
 	cmd := exec.Command("git", "fetch", "origin", branch)
@@ -100,4 +110,24 @@ func (c *Client) ListWorktrees() ([]Worktree, error) {
 	}
 
 	return worktrees, nil
+}
+
+// AutoCommitTypechange auto-commits the typechange to avoid pre-commit issues
+func (c *Client) AutoCommitTypechange(worktreePath, configPath string) error {
+	// Stage the change
+	cmd := exec.Command("git", "add", configPath)
+	cmd.Dir = worktreePath
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+
+	// Commit it
+	cmd = exec.Command("git", "commit", "-m", "Setup symlink for pre-commit config")
+	cmd.Dir = worktreePath
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+
+	fmt.Printf("Auto-committed config symlink: %s\n", configPath)
+	return nil
 }
