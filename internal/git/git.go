@@ -101,3 +101,50 @@ func (c *Client) ListWorktrees() ([]Worktree, error) {
 
 	return worktrees, nil
 }
+
+// GetUnstagedFiles returns a list of all unstaged files (modified tracked files and untracked files)
+func (c *Client) GetUnstagedFiles() ([]string, error) {
+	var allFiles []string
+
+	// Get modified tracked files that are not staged
+	cmd := exec.Command("git", "diff", "--name-only")
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get modified files: %w", err)
+	}
+	if len(output) > 0 {
+		modifiedFiles := strings.Split(strings.TrimSpace(string(output)), "\n")
+		for _, file := range modifiedFiles {
+			if file != "" {
+				allFiles = append(allFiles, file)
+			}
+		}
+	}
+
+	// Get untracked files
+	cmd = exec.Command("git", "ls-files", "--others", "--exclude-standard")
+	output, err = cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get untracked files: %w", err)
+	}
+	if len(output) > 0 {
+		untrackedFiles := strings.Split(strings.TrimSpace(string(output)), "\n")
+		for _, file := range untrackedFiles {
+			if file != "" {
+				allFiles = append(allFiles, file)
+			}
+		}
+	}
+
+	return allFiles, nil
+}
+
+// GetCurrentWorkingDir returns the root directory of the current git repository
+func (c *Client) GetCurrentWorkingDir() (string, error) {
+	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to get working directory: %w", err)
+	}
+	return strings.TrimSpace(string(output)), nil
+}

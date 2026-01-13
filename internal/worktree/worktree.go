@@ -4,6 +4,7 @@ package worktree
 import (
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -51,7 +52,7 @@ func (m *Manager) GetPath(ticket string) (string, error) {
 }
 
 // Create creates a new git worktree
-func (m *Manager) Create(ticket, baseBranch string) error {
+func (m *Manager) Create(ticket, baseBranch string, copyUnstaged bool) error {
 	repo, err := m.git.GetRepoName()
 	if err != nil {
 		return err
@@ -79,6 +80,13 @@ func (m *Manager) Create(ticket, baseBranch string) error {
 	fmt.Printf("Creating worktree for %s%s%s...\n", util.ColorBlue, ticket, util.ColorReset)
 	if err := m.git.CreateWorktree(worktreeDir, ticket); err != nil {
 		return fmt.Errorf("failed to create worktree: %w", err)
+	}
+
+	// Copy unstaged files if requested
+	if copyUnstaged {
+		if err := m.copyUnstagedFiles(worktreeDir); err != nil {
+			return fmt.Errorf("failed to copy unstaged files: %w", err)
+		}
 	}
 
 	fmt.Printf("%sSuccess!%s Worktree created at: %s\n", util.ColorGreen, util.ColorReset, worktreeDir)
@@ -176,4 +184,74 @@ func (m *Manager) List() error {
 	}
 
 	return nil
+}
+
+// copyUnstagedFiles copies unstaged files from the current working directory to the target worktree
+func (m *Manager) copyUnstagedFiles(targetPath string) error {
+	// Get the current working directory
+	sourceDir, err := m.git.GetCurrentWorkingDir()
+	if err != nil {
+		return fmt.Errorf("failed to get current working directory: %w", err)
+	}
+
+	// Get the list of unstaged files
+	unstagedFiles, err := m.git.GetUnstagedFiles()
+	if err != nil {
+		return fmt.Errorf("failed to get unstaged files: %w", err)
+	}
+
+	if len(unstagedFiles) == 0 {
+		fmt.Printf("No unstaged files to copy\n")
+		return nil
+	}
+
+	fmt.Printf("Copying %d unstaged file(s) to worktree...\n", len(unstagedFiles))
+
+	// Copy each unstaged file
+	for _, relPath := range unstagedFiles {
+		srcPath := filepath.Join(sourceDir, relPath)
+		dstPath := filepath.Join(targetPath, relPath)
+
+		// Create destination directory if needed
+		dstDir := filepath.Dir(dstPath)
+		if err := os.MkdirAll(dstDir, 0755); err != nil {
+			return fmt.Errorf("failed to create directory %s: %w", dstDir, err)
+		}
+
+		// Copy file
+		if err := copyFile(srcPath, dstPath); err != nil {
+			return fmt.Errorf("failed to copy %s: %w", relPath, err)
+		}
+
+		fmt.Printf("  Copied: %s%s%s\n", util.ColorYellow, relPath, util.ColorReset)
+	}
+
+	return nil
+}
+
+// copyFile copies a single file from src to dst
+func copyFile(src, dst string) error {
+	sourceFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer sourceFile.Close()
+
+	destFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer destFile.Close()
+
+	_, err = io.Copy(destFile, sourceFile)
+	if err != nil {
+		return err
+	}
+
+	// Copy file permissions
+	sourceInfo, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+	return os.Chmod(dst, sourceInfo.Mode())
 }
