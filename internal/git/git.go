@@ -102,45 +102,38 @@ func (c *Client) ListWorktrees() ([]Worktree, error) {
 	return worktrees, nil
 }
 
+// gitOutputLines runs a git command and returns non-empty output lines.
+func gitOutputLines(args ...string) ([]string, error) {
+	output, err := exec.Command("git", args...).Output()
+	if err != nil {
+		return nil, err
+	}
+	var lines []string
+	for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
+		if line != "" {
+			lines = append(lines, line)
+		}
+	}
+	return lines, nil
+}
+
 // GetUnstagedFiles returns a list of all unstaged files (modified tracked files and untracked files)
 func (c *Client) GetUnstagedFiles() ([]string, error) {
-	var allFiles []string
-
-	// Get modified tracked files that are not staged
-	cmd := exec.Command("git", "diff", "--name-only")
-	output, err := cmd.Output()
+	modified, err := gitOutputLines("diff", "--name-only")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get modified files: %w", err)
 	}
-	if len(output) > 0 {
-		modifiedFiles := strings.Split(strings.TrimSpace(string(output)), "\n")
-		for _, file := range modifiedFiles {
-			if file != "" {
-				allFiles = append(allFiles, file)
-			}
-		}
-	}
 
-	// Get untracked files
-	cmd = exec.Command("git", "ls-files", "--others", "--exclude-standard")
-	output, err = cmd.Output()
+	untracked, err := gitOutputLines("ls-files", "--others", "--exclude-standard")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get untracked files: %w", err)
 	}
-	if len(output) > 0 {
-		untrackedFiles := strings.Split(strings.TrimSpace(string(output)), "\n")
-		for _, file := range untrackedFiles {
-			if file != "" {
-				allFiles = append(allFiles, file)
-			}
-		}
-	}
 
-	return allFiles, nil
+	return append(modified, untracked...), nil
 }
 
-// GetCurrentWorkingDir returns the root directory of the current git repository
-func (c *Client) GetCurrentWorkingDir() (string, error) {
+// GetGitRepoRoot returns the root directory of the current git repository
+func (c *Client) GetGitRepoRoot() (string, error) {
 	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
 	output, err := cmd.Output()
 	if err != nil {

@@ -189,7 +189,7 @@ func (m *Manager) List() error {
 // copyUnstagedFiles copies unstaged files from the current working directory to the target worktree
 func (m *Manager) copyUnstagedFiles(targetPath string) error {
 	// Get the current working directory
-	sourceDir, err := m.git.GetCurrentWorkingDir()
+	sourceDir, err := m.git.GetGitRepoRoot()
 	if err != nil {
 		return fmt.Errorf("failed to get current working directory: %w", err)
 	}
@@ -230,7 +230,7 @@ func (m *Manager) copyUnstagedFiles(targetPath string) error {
 }
 
 // copyFile copies a single file from src to dst
-func copyFile(src, dst string) error {
+func copyFile(src, dst string) (err error) {
 	sourceFile, err := os.Open(src)
 	if err != nil {
 		return err
@@ -241,7 +241,12 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer destFile.Close()
+	defer func() {
+		closeErr := destFile.Close()
+		if err == nil {
+			err = closeErr
+		}
+	}()
 
 	_, err = io.Copy(destFile, sourceFile)
 	if err != nil {
