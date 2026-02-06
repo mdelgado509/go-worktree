@@ -78,15 +78,21 @@ func main() {
 func printUsage() {
 	fmt.Println("Golang Git Worktree Manager - Streamlined workflow")
 	fmt.Println("\nUsage:")
-	fmt.Println("  go-worktree create|add TICKET-ID [BASE-BRANCH]  Create a new worktree (default: main)")
+	fmt.Println("  go-worktree create|add TICKET-ID [BASE-BRANCH] [-u|--copy-unstaged]")
+	fmt.Println("                                                  Create a new worktree (default: main)")
 	fmt.Println("  go-worktree delete|rm TICKET-ID [-d]            Delete a worktree (-d to delete branch)")
 	fmt.Println("  go-worktree list|ls                             List all your worktrees")
 	fmt.Println("  go-worktree cd|switch TICKET-ID                 Print command to change to worktree")
 	fmt.Println("  go-worktree help|--help                         Show this help message")
 	fmt.Println("  go-worktree version|--version                   Show version information")
+	fmt.Println("\nFlags:")
+	fmt.Println("  -u, --copy-unstaged                             Copy unstaged changes to new worktree")
+	fmt.Println("  -d                                              Delete branch along with worktree")
 	fmt.Println("\nExamples:")
 	fmt.Println("  go-worktree create ABC-746                      Create worktree for ticket ABC-746")
 	fmt.Println("  go-worktree create ABC-746 develop              Create from develop branch")
+	fmt.Println("  go-worktree create ABC-746 -u                   Create and copy unstaged changes")
+	fmt.Println("  go-worktree create ABC-746 --copy-unstaged      Create and copy unstaged changes")
 	fmt.Println("  go-worktree delete ABC-746 -d                   Delete worktree and branch")
 	fmt.Println("  eval $(go-worktree cd ABC-746)                  Switch to ABC-746 worktree")
 }
@@ -95,6 +101,8 @@ func printUsage() {
 func handleCreate() {
 	createCommand := flag.NewFlagSet(cmdCreate, flag.ExitOnError)
 	baseBranch := createCommand.String("base", "main", "Base branch to create from")
+	copyUnstaged := createCommand.Bool("copy-unstaged", false, "Copy unstaged changes to the new worktree")
+	copyUnstagedShort := createCommand.Bool("u", false, "Copy unstaged changes to the new worktree (shorthand)")
 
 	// Parse remaining args
 	err := createCommand.Parse(os.Args[2:])
@@ -115,8 +123,11 @@ func handleCreate() {
 		*baseBranch = args[1]
 	}
 
+	// Combine both flag variants
+	shouldCopyUnstaged := *copyUnstaged || *copyUnstagedShort
+
 	wt := worktree.NewManager()
-	if err := wt.Create(ticket, *baseBranch); err != nil {
+	if err := wt.Create(ticket, *baseBranch, shouldCopyUnstaged); err != nil {
 		fmt.Fprintf(os.Stderr, "%sError: %v%s\n", util.ColorRed, err, util.ColorReset)
 		os.Exit(1)
 	}

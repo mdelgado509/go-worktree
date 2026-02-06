@@ -101,3 +101,43 @@ func (c *Client) ListWorktrees() ([]Worktree, error) {
 
 	return worktrees, nil
 }
+
+// gitOutputLines runs a git command and returns non-empty output lines.
+func gitOutputLines(args ...string) ([]string, error) {
+	output, err := exec.Command("git", args...).Output()
+	if err != nil {
+		return nil, err
+	}
+	var lines []string
+	for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
+		if line != "" {
+			lines = append(lines, line)
+		}
+	}
+	return lines, nil
+}
+
+// GetUnstagedFiles returns a list of all unstaged files (modified tracked files and untracked files)
+func (c *Client) GetUnstagedFiles() ([]string, error) {
+	modified, err := gitOutputLines("diff", "--name-only")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get modified files: %w", err)
+	}
+
+	untracked, err := gitOutputLines("ls-files", "--others", "--exclude-standard")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get untracked files: %w", err)
+	}
+
+	return append(modified, untracked...), nil
+}
+
+// GetGitRepoRoot returns the root directory of the current git repository
+func (c *Client) GetGitRepoRoot() (string, error) {
+	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to get working directory: %w", err)
+	}
+	return strings.TrimSpace(string(output)), nil
+}
